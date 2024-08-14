@@ -4,6 +4,8 @@ name: web-app-staging_app_40a9585_env_deeaae6 Pipeline (Skyu Generated)
     branches:
       - staging
       - release/*
+    tags:
+      - test
     paths-ignore:
       - .github/workflows/**
       - .trivyignore
