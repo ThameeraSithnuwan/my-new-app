@@ -142,8 +142,8 @@ jobs:
                 fi
                 echo "${{ env.ENCODED_PIPELINE_SECRET }}" | base64 --decode | jq -r 'to_entries[] | "\(.key)=\(.value)"' | while read line; do echo "$line" >> $GITHUB_ENV; echo "::add-mask::${line#*=}"; done
                 
-      - name: Temp Custom Step
-        run: echo "your command heres"
+      - name: Unit tests
+        run: "cd js/oneoff_coordinator\r\n\r\nif [ -f docker-compose.test.yml ]; then\r\n    docker compose -f docker-compose.test.yml up --exit-code-from sut --build sut\r\nelse\r\n    echo \"WARNING: No Test (define in docker-compose.test.yml)\"\r\nfi"
       - name: 'Run :: Pipeline Testing'
         run: |2-
 
