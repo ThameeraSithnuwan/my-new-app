@@ -64,6 +64,44 @@ jobs:
       CONTEXT_JSON: ${{ toJson(github) }}
     runs-on: ubuntu-latest
     steps:
+      - name: 'Run :: Start'
+        run: |2-
+
+              echo " Starting GitHub Action!" && 
+              echo "STEPS_CAN_PROCEED=true" >> $GITHUB_ENV
+              
+      - name: 'Run :: Checkout repository'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: 'Run :: Checkout Specific Commit'
+        env:
+          COMMIT_ID: ${{ github.event.client_payload.commitId }}
+          BRANCH_NAME: ${{ github.event.client_payload.branchName }}
+        if: >-
+          ${{ github.event.client_payload.commitId != null ||
+          github.event.client_payload.branchName != null }}
+        run: |2-
+
+              echo "Starting the checkout process..."
+              git fetch --all
+              if [ -n "$COMMIT_ID" ]; then
+                echo "Commit ID provided: $COMMIT_ID"
+                git checkout $COMMIT_ID || true
+                echo "Checked out to commit ID: $COMMIT_ID"
+              elif [ -n "$BRANCH_NAME" ]; then
+                echo "Branch name provided: $BRANCH_NAME"
+                git checkout $BRANCH_NAME || true
+                echo "Checked out to branch: $BRANCH_NAME"
+
+                #Updating the commit Id
+                ACTUAL_COMMIT_ID=$(git rev-parse HEAD)
+                echo "Changing CommitId: $ACTUAL_COMMIT_ID"
+                echo "COMMIT_ID=$ACTUAL_COMMIT_ID" >> $GITHUB_ENV
+              else
+                echo "Skipping checkout..."
+              fi
+            
       - name: 'Run :: Decoding Secrets'
         run: |2-
 
@@ -74,12 +112,12 @@ jobs:
                 fi
                 echo "${{ env.ENCODED_PIPELINE_SECRET }}" | base64 --decode | jq -r 'to_entries[] | "\(.key)=\(.value)"' | while read line; do echo "$line" >> $GITHUB_ENV; echo "::add-mask::${line#*=}"; done
                 
-      - name: Pipeline Started
+      - name: 'Run :: Pipeline Started'
         env:
           RUN_ID: ${{ github.run_id }}
         run: |2-
 
-              context=$(echo "$CONTEXT_JSON" | jq -c . | base64)
+              context=$(echo "$CONTEXT_JSON" | jq --arg sha "$COMMIT_ID" '.sha = $sha' | jq -c . | base64)
               response=$(curl -X PUT -d "runId=$RUN_ID&context=$context"  -H 'Authorization: ${{ env.SERVICE_ACC_ACCESS_TOKEN }}' -H 'x-organization-id: ${{ env.PIPELINE_ORGANIZATION_ID }}' -H 'x-project-id: ${{ env.PIPELINE_PROJECT_ID }}' -H 'x-environment-id: ${{ env.PIPELINE_ENVIRONMENT_ID }}' -H 'x-trace-id: ${{ env.PIPELINE_TRACE_ID }}' -H 'x-auth-by: sa' -H 'Content-Type: application/x-www-form-urlencoded'  "${{ env.PIPELINE_SERVICE_EP }}/${{ env.PIPELINE_ID }}/PENDING?releaseId=${{ github.event.client_payload.releaseData.releaseId }}")
               if echo "$response" | grep -q '"success":true'; then
                 echo "SUCCESS :: $response"
@@ -106,7 +144,7 @@ jobs:
                 
       - name: Unit tests
         run: "cd js/oneoff_coordinator\r\n\r\nif [ -f docker-compose.test.yml ]; then\r\n    docker compose -f docker-compose.test.yml up --exit-code-from sut --build sut\r\nelse\r\n    echo \"WARNING: No Test (define in docker-compose.test.yml)\"\r\nfi"
-      - name: Pipeline Testing
+      - name: 'Run :: Pipeline Testing'
         run: |2-
 
               # NOTE: Do not remove this job even if you don't have tests at the moment.
@@ -118,6 +156,44 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event.client_payload.releaseData }}
     steps:
+      - name: 'Run :: Start'
+        run: |2-
+
+              echo " Starting GitHub Action!" && 
+              echo "STEPS_CAN_PROCEED=true" >> $GITHUB_ENV
+              
+      - name: 'Run :: Checkout repository'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: 'Run :: Checkout Specific Commit'
+        env:
+          COMMIT_ID: ${{ github.event.client_payload.commitId }}
+          BRANCH_NAME: ${{ github.event.client_payload.branchName }}
+        if: >-
+          ${{ github.event.client_payload.commitId != null ||
+          github.event.client_payload.branchName != null }}
+        run: |2-
+
+              echo "Starting the checkout process..."
+              git fetch --all
+              if [ -n "$COMMIT_ID" ]; then
+                echo "Commit ID provided: $COMMIT_ID"
+                git checkout $COMMIT_ID || true
+                echo "Checked out to commit ID: $COMMIT_ID"
+              elif [ -n "$BRANCH_NAME" ]; then
+                echo "Branch name provided: $BRANCH_NAME"
+                git checkout $BRANCH_NAME || true
+                echo "Checked out to branch: $BRANCH_NAME"
+
+                #Updating the commit Id
+                ACTUAL_COMMIT_ID=$(git rev-parse HEAD)
+                echo "Changing CommitId: $ACTUAL_COMMIT_ID"
+                echo "COMMIT_ID=$ACTUAL_COMMIT_ID" >> $GITHUB_ENV
+              else
+                echo "Skipping checkout..."
+              fi
+            
       - name: 'Run :: Decoding Secrets'
         run: |2-
 
@@ -128,7 +204,7 @@ jobs:
                 fi
                 echo "${{ env.ENCODED_PIPELINE_SECRET }}" | base64 --decode | jq -r 'to_entries[] | "\(.key)=\(.value)"' | while read line; do echo "$line" >> $GITHUB_ENV; echo "::add-mask::${line#*=}"; done
                 
-      - name: Pipeline Release
+      - name: 'Run :: Pipeline Release'
         env:
           RELEASE_ID: ${{ github.event.client_payload.releaseData.releaseId }}
           PIPELINE_ID: ${{ github.event.client_payload.releaseData.pipelineId }}
@@ -175,7 +251,7 @@ jobs:
     needs:
       - _status_testing
     steps:
-      - name: Start
+      - name: 'Run :: Start'
         run: |2-
 
               echo " Starting GitHub Action!" && 
@@ -204,6 +280,11 @@ jobs:
                 echo "Branch name provided: $BRANCH_NAME"
                 git checkout $BRANCH_NAME || true
                 echo "Checked out to branch: $BRANCH_NAME"
+
+                #Updating the commit Id
+                ACTUAL_COMMIT_ID=$(git rev-parse HEAD)
+                echo "Changing CommitId: $ACTUAL_COMMIT_ID"
+                echo "COMMIT_ID=$ACTUAL_COMMIT_ID" >> $GITHUB_ENV
               else
                 echo "Skipping checkout..."
               fi
@@ -348,6 +429,44 @@ jobs:
       - deploy
     if: ${{ !(failure() || cancelled()) }}
     steps:
+      - name: 'Run :: Start'
+        run: |2-
+
+              echo " Starting GitHub Action!" && 
+              echo "STEPS_CAN_PROCEED=true" >> $GITHUB_ENV
+              
+      - name: 'Run :: Checkout repository'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: 'Run :: Checkout Specific Commit'
+        env:
+          COMMIT_ID: ${{ github.event.client_payload.commitId }}
+          BRANCH_NAME: ${{ github.event.client_payload.branchName }}
+        if: >-
+          ${{ github.event.client_payload.commitId != null ||
+          github.event.client_payload.branchName != null }}
+        run: |2-
+
+              echo "Starting the checkout process..."
+              git fetch --all
+              if [ -n "$COMMIT_ID" ]; then
+                echo "Commit ID provided: $COMMIT_ID"
+                git checkout $COMMIT_ID || true
+                echo "Checked out to commit ID: $COMMIT_ID"
+              elif [ -n "$BRANCH_NAME" ]; then
+                echo "Branch name provided: $BRANCH_NAME"
+                git checkout $BRANCH_NAME || true
+                echo "Checked out to branch: $BRANCH_NAME"
+
+                #Updating the commit Id
+                ACTUAL_COMMIT_ID=$(git rev-parse HEAD)
+                echo "Changing CommitId: $ACTUAL_COMMIT_ID"
+                echo "COMMIT_ID=$ACTUAL_COMMIT_ID" >> $GITHUB_ENV
+              else
+                echo "Skipping checkout..."
+              fi
+            
       - name: 'Run :: Decoding Secrets'
         run: |2-
 
@@ -358,12 +477,12 @@ jobs:
                 fi
                 echo "${{ env.ENCODED_PIPELINE_SECRET }}" | base64 --decode | jq -r 'to_entries[] | "\(.key)=\(.value)"' | while read line; do echo "$line" >> $GITHUB_ENV; echo "::add-mask::${line#*=}"; done
                 
-      - name: Pipeline Success
+      - name: 'Run :: Pipeline Success'
         env:
           RUN_ID: ${{ github.run_id }}
         run: |2-
 
-              context=$(echo "$CONTEXT_JSON" | jq -c . | base64)
+              context=$(echo "$CONTEXT_JSON" | jq --arg sha "$COMMIT_ID" '.sha = $sha' | jq -c . | base64)
               response=$(curl -X PUT -d "runId=$RUN_ID&context=$context"  -H 'Authorization: ${{ env.SERVICE_ACC_ACCESS_TOKEN }}' -H 'x-organization-id: ${{ env.PIPELINE_ORGANIZATION_ID }}' -H 'x-project-id: ${{ env.PIPELINE_PROJECT_ID }}' -H 'x-environment-id: ${{ env.PIPELINE_ENVIRONMENT_ID }}' -H 'x-trace-id: ${{ env.PIPELINE_TRACE_ID }}' -H 'x-auth-by: sa' -H 'Content-Type: application/x-www-form-urlencoded'  "${{ env.PIPELINE_SERVICE_EP }}/${{ env.PIPELINE_ID }}/SUCCESS?releaseId=${{ github.event.client_payload.releaseData.releaseId }}")
               
   _status-failed:
@@ -379,6 +498,44 @@ jobs:
       - deploy
     if: ${{ failure() || cancelled() }}
     steps:
+      - name: 'Run :: Start'
+        run: |2-
+
+              echo " Starting GitHub Action!" && 
+              echo "STEPS_CAN_PROCEED=true" >> $GITHUB_ENV
+              
+      - name: 'Run :: Checkout repository'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: 'Run :: Checkout Specific Commit'
+        env:
+          COMMIT_ID: ${{ github.event.client_payload.commitId }}
+          BRANCH_NAME: ${{ github.event.client_payload.branchName }}
+        if: >-
+          ${{ github.event.client_payload.commitId != null ||
+          github.event.client_payload.branchName != null }}
+        run: |2-
+
+              echo "Starting the checkout process..."
+              git fetch --all
+              if [ -n "$COMMIT_ID" ]; then
+                echo "Commit ID provided: $COMMIT_ID"
+                git checkout $COMMIT_ID || true
+                echo "Checked out to commit ID: $COMMIT_ID"
+              elif [ -n "$BRANCH_NAME" ]; then
+                echo "Branch name provided: $BRANCH_NAME"
+                git checkout $BRANCH_NAME || true
+                echo "Checked out to branch: $BRANCH_NAME"
+
+                #Updating the commit Id
+                ACTUAL_COMMIT_ID=$(git rev-parse HEAD)
+                echo "Changing CommitId: $ACTUAL_COMMIT_ID"
+                echo "COMMIT_ID=$ACTUAL_COMMIT_ID" >> $GITHUB_ENV
+              else
+                echo "Skipping checkout..."
+              fi
+            
       - name: 'Run :: Decoding Secrets'
         run: |2-
 
@@ -389,12 +546,12 @@ jobs:
                 fi
                 echo "${{ env.ENCODED_PIPELINE_SECRET }}" | base64 --decode | jq -r 'to_entries[] | "\(.key)=\(.value)"' | while read line; do echo "$line" >> $GITHUB_ENV; echo "::add-mask::${line#*=}"; done
                 
-      - name: Pipeline Failed
+      - name: 'Run :: Pipeline Failed'
         env:
           RUN_ID: ${{ github.run_id }}
         run: |2-
 
-              context=$(echo "$CONTEXT_JSON" | jq -c . | base64)
+              context=$(echo "$CONTEXT_JSON" | jq --arg sha "$COMMIT_ID" '.sha = $sha' | jq -c . | base64)
               response=$(curl -X PUT -d "runId=$RUN_ID&context=$context"  -H 'Authorization: ${{ env.SERVICE_ACC_ACCESS_TOKEN }}' -H 'x-organization-id: ${{ env.PIPELINE_ORGANIZATION_ID }}' -H 'x-project-id: ${{ env.PIPELINE_PROJECT_ID }}' -H 'x-environment-id: ${{ env.PIPELINE_ENVIRONMENT_ID }}' -H 'x-trace-id: ${{ env.PIPELINE_TRACE_ID }}' -H 'x-auth-by: sa' -H 'Content-Type: application/x-www-form-urlencoded'  "${{ env.PIPELINE_SERVICE_EP }}/${{ env.PIPELINE_ID }}/FAILED?releaseId=${{ github.event.client_payload.releaseData.releaseId }}")
               
   deploy:
@@ -418,7 +575,6 @@ jobs:
       - name: 'Run :: Deploy and Notify Resource Service'
         env:
           RUN_ID: ${{ github.run_id }}
-          SHA: ${{ github.sha }}
           COMMIT_USER: ${{ github.event.head_commit.author.name }}
           COMMIT_TIME: ${{ github.event.head_commit.timestamp }}
           COMMIT_MESSAGE: >-
@@ -426,7 +582,7 @@ jobs:
             github.event.client_payload.commitMessage }}
         run: |2-
               
-              response=$(curl -X PATCH -d "imageRegistryURL=${{ env.IMAGE_NAME }}&appVersionId=${{ env.DEPLOYMENT_APP_VERSION_ID }}&tag=${{ env.COMMIT_ID }}&containerName=${{ env.DEPLOYMENT_CONTAINER_NAME }}&shouldDeploy=${{env.DEPLOY_STEP_SHOULD_DEPLOY}}&pipelineRunId=$RUN_ID&commitDetails[commitHash]=$SHA&commitDetails[commitAvatar]=https://github.com/$COMMIT_USER.png&commitDetails[commitTime]=$COMMIT_TIME&commitDetails[commitMessage]=$COMMIT_MESSAGE&commitDetails[commitUser]=$COMMIT_USER"  -H 'Authorization: ${{ env.SERVICE_ACC_ACCESS_TOKEN }}' -H 'x-organization-id: ${{ env.PIPELINE_ORGANIZATION_ID }}' -H 'x-project-id: ${{ env.PIPELINE_PROJECT_ID }}' -H 'x-environment-id: ${{ env.PIPELINE_ENVIRONMENT_ID }}' -H 'x-application-id: ${{ env.PIPELINE_APPLICATION_ID }}' -H 'x-trace-id: ${{ env.PIPELINE_TRACE_ID }}' -H 'x-resource-id: ${{ env.PIPELINE_APPLICATION_ID }}' -H 'x-auth-by: sa' -H 'Content-Type: application/x-www-form-urlencoded'  "${{ env.DEPLOYMENT_ENDPOINT }}")
+              response=$(curl -X PATCH -d "imageRegistryURL=${{ env.IMAGE_NAME }}&appVersionId=${{ env.DEPLOYMENT_APP_VERSION_ID }}&tag=${{ env.COMMIT_ID }}&containerName=${{ env.DEPLOYMENT_CONTAINER_NAME }}&shouldDeploy=${{env.DEPLOY_STEP_SHOULD_DEPLOY}}&pipelineRunId=$RUN_ID&commitDetails[commitHash]=${{ env.COMMIT_ID }}&commitDetails[commitAvatar]=https://github.com/$COMMIT_USER.png&commitDetails[commitTime]=$COMMIT_TIME&commitDetails[commitMessage]=$COMMIT_MESSAGE&commitDetails[commitUser]=$COMMIT_USER"  -H 'Authorization: ${{ env.SERVICE_ACC_ACCESS_TOKEN }}' -H 'x-organization-id: ${{ env.PIPELINE_ORGANIZATION_ID }}' -H 'x-project-id: ${{ env.PIPELINE_PROJECT_ID }}' -H 'x-environment-id: ${{ env.PIPELINE_ENVIRONMENT_ID }}' -H 'x-application-id: ${{ env.PIPELINE_APPLICATION_ID }}' -H 'x-trace-id: ${{ env.PIPELINE_TRACE_ID }}' -H 'x-resource-id: ${{ env.PIPELINE_APPLICATION_ID }}' -H 'x-auth-by: sa' -H 'Content-Type: application/x-www-form-urlencoded'  "${{ env.DEPLOYMENT_ENDPOINT }}")
               
               status_code=$?
 
